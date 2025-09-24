@@ -1,0 +1,62 @@
+server:
+  port: ${PORT:8081}
+
+spring:
+  application:
+    name: krs-identity-gw
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # どちらか片方でもOK。両方あっても可
+          jwk-set-uri: ${KEYCLOAK_JWKS_URI:http://localhost:8080/realms/kairos/protocol/openid-connect/certs}
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8080/realms/kairos}
+
+  cloud:
+    gateway:
+      default-filters:
+        # レスポンスヘッダの CORS 重複を除去
+        - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials
+      routes:
+        - id: user-profile
+          uri: ${USER_PROFILE_BASE:http://localhost:8082}
+          predicates:
+            - Path=/api/users/**
+          filters:
+            - RemoveRequestHeader=Authorization
+
+      # ←★ 正しい場所はここ（globalcors）
+      globalcors:
+        add-to-simple-url-handler-mapping: true
+        cors-configurations:
+          '[/**]':
+            allowedOrigins:
+              - ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - PATCH
+              - DELETE
+              - OPTIONS
+            allowedHeaders:
+              - Authorization
+              - Content-Type
+            allowCredentials: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+internal:
+  auth:
+    secret: ${INTERNAL_AUTH_SECRET:dev-internal-secret-123}
+
+logging:
+  level:
+    root: INFO
+    org.springframework.cloud.gateway: INFO
+    org.springframework.security: INFO
